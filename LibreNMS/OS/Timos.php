@@ -607,7 +607,8 @@ class Timos extends OS implements MplsDiscovery, MplsPolling, WirelessPowerDisco
                 unset($key);
                 continue;
             }
-            $svcs->push(new MplsService([
+
+            $svc = new MplsService([
                 'svc_oid' => $value['svcId'],
                 'device_id' => $this->getDeviceId(),
                 'svcRowStatus' => $value['svcRowStatus'] ?? null,
@@ -627,7 +628,10 @@ class Timos extends OS implements MplsDiscovery, MplsPolling, WirelessPowerDisco
                 'svcTlsStpOperStatus' => $value['svcTlsStpOperStatus'] ?? null,
                 'svcTlsFdbTableSize' => $value['svcTlsFdbTableSize'] ?? null,
                 'svcTlsFdbNumEntries' => $value['svcTlsFdbNumEntries'] ?? null,
-            ]));
+            ]);
+            
+            if(!is_null($svc->svc_oid))
+                $svcs->push($svc);
         }
 
         return $svcs;
@@ -651,7 +655,6 @@ class Timos extends OS implements MplsDiscovery, MplsPolling, WirelessPowerDisco
 
         // cache a ifIndex -> ifName
         $ifIndexNames = $this->getDevice()->ports()->pluck('ifName', 'ifIndex');
-
         foreach ($mplsSapCache as $key => $value) {
             if (preg_match($filter_key, $key) || preg_match($filter_value, $value['sapDescription'])) {
                 unset($key);
@@ -667,7 +670,6 @@ class Timos extends OS implements MplsDiscovery, MplsPolling, WirelessPowerDisco
                 $specialQinQIdentifier = '4095';
                 $traffic_id = $svcId . '.' . $sapPortId . '.' . $specialQinQIdentifier;
             }
-
             $saps->push(new MplsSap([
                 'svc_id' => $svc_id,
                 'svc_oid' => $svcId,
@@ -684,16 +686,18 @@ class Timos extends OS implements MplsDiscovery, MplsPolling, WirelessPowerDisco
                 'sapLastStatusChange' => round($value['sapLastStatusChange'] / 100),
             ]));
             //create SAP graphs
+            
             $rrd_name = \LibreNMS\Data\Store\Rrd::safeName('sap-' . $traffic_id);
             $rrd_def = RrdDefinition::make()
             ->addDataset('sapIngressBits', 'COUNTER', 0)
             ->addDataset('sapEgressBits', 'COUNTER', 0)
             ->addDataset('sapIngressDroppedBits', 'COUNTER', 0)
             ->addDataset('sapEgressDroppedBits', 'COUNTER', 0);
-
+            
             $fields = [
-                'sapIngressBits' => ($mplsSapTrafficCache[$traffic_id]['sapBaseStatsIngressPchipOfferedLoPrioOctets'] ?? 0) * 8,
-                'sapEgressBits' => ($mplsSapTrafficCache[$traffic_id]['sapBaseStatsEgressQchipForwardedOutProfOctets'] ?? 0) * 8,
+                
+                'sapIngressBits' => ($mplsSapTrafficCache[$traffic_id]['sapBaseStatsIngressPchipOfferedHiPrioOckets'] ?? 0) * 8,
+                'sapEgressBits' => ($mplsSapTrafficCache[$traffic_id]['sapBaseStatsEgressQchipForwardedInProfOctets'] ?? 0) * 8,
                 'sapIngressDroppedBits' => ($mplsSapTrafficCache[$traffic_id]['sapBaseStatsIngressQchipDroppedLoPrioOctets'] ?? 0) * 8,
                 'sapEgressDroppedBits' => ($mplsSapTrafficCache[$traffic_id]['sapBaseStatsEgressQchipDroppedOutProfOctets'] ?? 0) * 8,
             ];
@@ -703,7 +707,6 @@ class Timos extends OS implements MplsDiscovery, MplsPolling, WirelessPowerDisco
                 'rrd_name' => $rrd_name,
                 'rrd_def' => $rrd_def,
             ];
-
             data_update($this->getDeviceArray(), 'sap', $tags, $fields);
             $this->enableGraph('sap');
         }

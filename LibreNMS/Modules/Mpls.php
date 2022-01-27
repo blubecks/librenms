@@ -118,7 +118,7 @@ class Mpls implements Module
                 ModuleModelObserver::observe('\App\Models\MplsService');
                 $svcs = $this->syncModels($device, 'mplsServices', $os->pollMplsServices());
             }
-
+            
             if ($device->mplsSaps()->exists()) {
                 echo "\nMPLS SAPs: ";
                 ModuleModelObserver::observe('\App\Models\MplsSap');
